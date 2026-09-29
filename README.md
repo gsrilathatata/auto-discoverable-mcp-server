@@ -1,344 +1,109 @@
-# TMF MCP Server
+# TMF MCP Server - Dynamic Tool Discovery
 
-**Auto-discover APIs as AI tools and execute them — zero manual schema writing.**
+Auto-discovers TMF Process APIs from Anypoint Exchange and exposes them as MCP tools for AI agents.
 
-A Node.js MCP (Model Context Protocol) server that connects to an API management platform, reads existing API specifications (OAS/RAML), and automatically registers every resource as an AI-callable tool. AI agents discover and invoke enterprise APIs through natural language — no custom connector per API, no hand-coded schema per resource.
-
-## How It Works
+## Architecture
 
 ```
-┌──────────────────┐     Streamable HTTP + SSE      ┌──────────────────────┐
-│   AI Agents      │ ──────── JSON-RPC ──────────▶  │   TMF MCP Server     │
-│  (Claude, Copilot│     tools/list, tools/call      │  Auto-discovers from │
-│   GPT, Gemini)   │ ◀──────────────────────────── │  OAS/RAML specs      │
-└──────────────────┘                                 └──────┬───────┬───────┘
-                                                           │       │
-                                              Fetch specs  │       │ Execute APIs
-                                                           ▼       ▼
-                                                    ┌────────┐ ┌────────────┐
-                                                    │Exchange │ │API Gateway │
-                                                    │(Specs)  │ │(Policies)  │
-                                                    └────────┘ └─────┬──────┘
-                                                                     │
-                                                              ┌──────▼──────┐
-                                                              │Backend APIs │
-                                                              │(Live Data)  │
-                                                              └─────────────┘
+Agent (VS Code / Claude)
+    ↓ MCP protocol (stdio)
+Flex Gateway (OAuth policy)
+    ↓
+This MCP Server (Node.js)
+    ↓ HTTP (client credentials)
+TMF Process APIs (CloudHub)
 ```
 
-### Startup (Auto-Discovery)
+## Project Structure
 
-1. Server reads `domain.json` for configured API asset IDs
-2. Fetches API specs (OAS preferred over RAML) from the API catalog
-3. Parses specs — extracts resource paths, HTTP methods, parameters, and request body schemas
-4. Registers each resource as an MCP tool with accurate input schemas
-5. Server ready — `tools/list` returns all discovered tools
+```
+tmf-mcp-server/
+├── config/
+│   ├── domain.json          ← Whitelist of Exchange assets to expose
+│   └── vscode-mcp.json      ← VS Code MCP config (copy to your user settings)
+├── src/
+│   ├── server.js             ← Main MCP server entry point
+│   ├── anypoint-client.js    ← Anypoint Platform API client
+│   ├── spec-parser.js        ← RAML/OAS spec → tool definition parser
+│   └── api-executor.js       ← Generic tool → HTTP request executor
+├── .env                      ← Credentials (DO NOT COMMIT)
+├── package.json
+└── README.md
+```
 
-### Runtime (Tool Execution)
+## Setup
 
-1. AI agent calls `tools/call` with a tool name and arguments
-2. Server constructs the HTTP request from the tool's API details
-3. Request is forwarded through the API gateway (policy-enforced)
-4. Response is returned to the agent, formatted for AI context
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+
-- Access to an API management platform with published API specs
-- Connected App credentials (client ID and secret)
-- API gateway for backend API routing (optional but recommended)
-
-### Installation
+### 1. Install dependencies
 
 ```bash
-git clone <repo-url>
 cd tmf-mcp-server
 npm install
 ```
 
-### Configuration
+### 2. Configure .env
 
-Create a `.env` file:
+Fill in your credentials in `.env`:
 
-```env
-ANYPOINT_CLIENT_ID=your-connected-app-client-id
-ANYPOINT_CLIENT_SECRET=your-connected-app-client-secret
-ANYPOINT_ORG_ID=your-organization-id
-ANYPOINT_ENV_ID=your-environment-id
-ANYPOINT_REGION=PROD_US
-PORT=8081
+```
+ANYPOINT_CLIENT_ID=<from Connected Apps>
+ANYPOINT_CLIENT_SECRET=<from Connected Apps>
+ANYPOINT_ORG_ID=<from Access Management → Organization>
+ANYPOINT_ENV_ID=<from API Manager URL>
+PROCESS_API_CLIENT_ID=<credentials for calling backend APIs>
+PROCESS_API_CLIENT_SECRET=<credentials for calling backend APIs>
 ```
 
-Create `config/domain.json`:
+### 3. Configure domain.json
+
+Edit `config/domain.json` to whitelist the APIs you want exposed:
 
 ```json
 {
   "exchangeAssets": [
     {
-      "assetId": "customer-management-api",
-      "version": "1.0.0",
-      "groupId": "your-group-id",
-      "displayName": "Customer Management API"
-    },
-    {
-      "assetId": "billing-api",
-      "version": "1.0.0",
-      "groupId": "your-group-id",
-      "displayName": "Billing API"
+      "assetId": "tmf-customer-api",
+      "displayName": "TMF Customer API",
+      "version": "1.0.0"
     }
   ]
 }
 ```
 
-### Run
+The `assetId` must match the asset ID in Anypoint Exchange exactly.
 
-```bash
-# Development
-node src/server.js
+### 4. Register in VS Code
 
-# Production (PM2)
-pm2 start src/server.js --name "tmf-mcp" -- --http
-pm2 save
-```
+Copy the `tmf-customer-ops` section from `config/vscode-mcp.json` into your VS Code `mcp.json`:
 
-### Verify
+- **Windows:** `C:\Users\<user>\AppData\Roaming\Code\User\mcp.json`
+- **macOS:** `~/Library/Application Support/Code/User/mcp.json`
 
-```bash
-# Health check
-curl http://localhost:8081/health
+Update the path in `"args"` to point to your actual `server.js` location.
 
-# List discovered tools
-curl -X POST http://localhost:8081/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+### 5. Test
 
-curl -X POST http://localhost:8081/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
-```
+Restart VS Code, open Agent mode, and verify the TMF tools appear.
 
-## Connecting AI Clients
+## Adding New APIs
 
-### VS Code (GitHub Copilot Chat)
+1. Deploy the API to CloudHub
+2. Manage it in API Manager (so it has an endpoint URL)
+3. Add entry to `config/domain.json`:
+   ```json
+   {
+     "assetId": "tmf-billing-api",
+     "displayName": "TMF Billing API",
+     "version": "1.0.0"
+   }
+   ```
+4. Restart VS Code — new tools auto-discovered
 
-Add to `.vscode/mcp.json`:
+## Creating Domain-Specific MCP Servers
 
-```json
-{
-  "servers": {
-    "tmf-mcp": {
-      "type": "sse",
-      "url": "http://localhost:8081/sse"
-    }
-  }
-}
-```
+Copy this project and change `config/domain.json` to create separate servers per domain:
 
-Enable MCP in VS Code settings: `chat.mcp.enabled = true`
+- **Customer Ops MCP:** customer-api, trouble-ticket-api
+- **Billing MCP:** customer-bill-api, payment-api, payment-method-api
+- **Network MCP:** service-inventory-api, network-api
 
-### Claude Desktop
-
-Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "tmf-mcp": {
-      "url": "http://localhost:8081/sse"
-    }
-  }
-}
-```
-
-### Copilot Studio
-
-Add as a Model Context Protocol connector with Server URL: `http://your-host:8081/mcp`
-
-### Postman
-
-```
-POST http://localhost:8081/mcp
-Headers:
-  Content-Type: application/json
-  Accept: application/json, text/event-stream
-Body:
-  {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"getCustomerById","arguments":{"id":"123"}}}
-```
-
-## Tool Customization
-
-### Override Tool Descriptions
-
-Auto-generated descriptions work out of the box. For AI-friendlier descriptions, add overrides in `domain.json`:
-
-```json
-{
-  "exchangeAssets": [
-    {
-      "assetId": "customer-management-api",
-      "toolDescriptions": {
-        "getCustomerById": "Retrieve a customer profile including name, address, contact details, and account status. Use when the user asks about a specific customer.",
-        "updateCustomerById": "Update customer profile details such as name, address, or status."
-      }
-    }
-  ]
-}
-```
-
-### Override Body Schemas
-
-When auto-parsed body schemas lack detail (common with `$ref`-heavy specs), add explicit schemas:
-
-```json
-{
-  "exchangeAssets": [
-    {
-      "assetId": "customer-management-api",
-      "toolBodySchemas": {
-        "updateCustomerById": {
-          "name": { "type": "string", "description": "Customer's full name" },
-          "status": { "type": "string", "description": "Customer status: approved, active, inactive" },
-          "contactMedium": { "type": "array", "description": "Contact details (email, phone)" }
-        }
-      }
-    }
-  ]
-}
-```
-
-## Architecture
-
-### Project Structure
-
-```
-tmf-mcp-server/
-├── src/
-│   ├── server.js           # MCP server — tool registration, request handling
-│   ├── anypoint-client.js   # API platform client — auth, spec fetching, endpoint discovery
-│   └── spec-parser.js       # OAS/RAML parser — converts specs to tool definitions
-├── config/
-│   └── domain.json          # Asset configuration, tool overrides
-├── .env                     # Credentials (not committed)
-└── package.json
-```
-
-### Spec Parsing
-
-The server supports two specification formats:
-
-**OAS (OpenAPI / Swagger)** — preferred. Self-contained JSON, native `$ref` resolution, no external dependencies.
-
-**RAML** — supported with a three-layer parsing approach:
-1. Custom YAML schema that registers `!include` as a known tag (prevents parser crashes)
-2. Include-aware tool builder that handles unresolved references gracefully
-3. Regex fallback that extracts resources by line-by-line analysis if YAML parsing fails
-
-The server prefers OAS over RAML when both are available (`fat-oas` → `oas` → `fat-raml` → `raml`). Most API catalogs auto-generate OAS from RAML with all schemas inlined, avoiding `!include` issues entirely.
-
-### Zip Extraction Priority
-
-When specs are downloaded as zip archives, the server selects the main spec file using priority-based logic:
-
-1. Root-level `.raml` files
-2. Root-level `.yaml` / `.yml` files
-3. Known JSON specs (`api.json`, `swagger.json`, `openapi.json`)
-4. Root-level `.json` (excluding `exchange.json`)
-5. Any spec file not in skip paths (`exchange_modules/`, `examples/`, `common-libraries/`, `docs/`)
-
-### Dual Transport
-
-The server supports two MCP transport protocols simultaneously:
-
-- **Streamable HTTP** (`/mcp`) — stateless JSON-RPC over HTTP POST. Works with Copilot Studio and Postman.
-- **SSE** (`/sse`) — Server-Sent Events for persistent connections. Works with VS Code and Claude Desktop.
-
-## Adding a New API
-
-No code changes required:
-
-1. Publish your API spec to the API catalog
-2. Add its `assetId` and `groupId` to `config/domain.json`
-3. Optionally add tool description overrides
-4. Restart the server
-
-The new API's resources are auto-registered as tools.
-
-## Security
-
-### Current Implementation
-
-- Connected App credentials for API catalog authentication (OAuth 2.0 client_credentials)
-- Token caching with early refresh (50-minute TTL on 60-minute tokens)
-- API gateway enforcement on all backend API calls (rate limiting, auth, audit)
-- Environment-based configuration (credentials in `.env`, not in code)
-
-### Recommended for Production
-
-| OWASP MCP Risk | Status | Recommendation |
-|---|---|---|
-| MCP07: No auth on MCP endpoint | Gap | Add API key or JWT validation on the MCP endpoint itself |
-| MCP02: No role-based tool access | Gap | Implement ABAC — filter tools by user role (viewer gets GET only) |
-| MCP10: PII in responses | Gap | Add response filtering to mask sensitive fields before returning to agent |
-| MCP01: Credentials in .env | Moderate | Use a secrets manager (Vault, cloud KMS) |
-| MCP08: No audit trail | Moderate | Add structured logging with request IDs and user attribution |
-| MCP05: Input validation | Low risk | Add regex/length constraints on string parameters beyond Zod types |
-| MCP03: Tool poisoning | Low risk | Allowlist asset IDs in domain.json; validate spec sources |
-
-### API Gateway Policies
-
-When using an API gateway (e.g., Flex Gateway), the following policies can be applied to the MCP server instance:
-
-- **MCP Schema Validation** — validates each request complies with MCP specification
-- **MCP Support** — required policy for gateway-managed MCP server instances
-- **Attribute-Based Access Control** — controls access to tools based on user attributes (tier, IP, role)
-- **MCP PII Detector** — detects and handles PII in tool responses
-- **MCP Tool Mapping** — allows remapping of tool names
-
-## Scaling
-
-### Current Capacity
-
-Single VM handles approximately 500 requests/minute with headroom.
-
-### Horizontal Scaling
-
-```bash
-# PM2 cluster mode
-pm2 stop tmf-mcp
-pm2 start src/server.js --name "tmf-mcp" -i 2 -- --http
-pm2 save
-```
-
-### For Higher Load
-
-- PM2 cluster mode (2–4 instances per VM)
-- Add Redis caching for API specs (refresh hourly)
-- Load balancer across multiple VMs (server is stateless)
-
-## Comparison: Auto-Discovery vs Manual Schema Approach
-
-| Aspect | Manual (one app per API) | Auto-Discovery (this server) |
-|---|---|---|
-| Adding a new API | Build app, define schemas, deploy | Add one line to config, restart |
-| Schema accuracy | Hand-written, can drift from spec | Parsed from spec, always current |
-| Maintenance | N apps to maintain | One server |
-| Time to new tool | Days to weeks | Minutes |
-| Code changes | Required per API | None (config only) |
-
-## Dependencies
-
-- `@modelcontextprotocol/sdk` — MCP protocol implementation
-- `node-fetch` — HTTP client for API calls
-- `zod` — Runtime parameter validation
-- `dotenv` — Environment configuration
-- `adm-zip` — Spec zip extraction
-- `js-yaml` — YAML/RAML parsing
-- `express` — HTTP server for dual transport
-
-## License
-
-MIT
+Each domain gets its own MCP server entry in VS Code's `mcp.json`.
