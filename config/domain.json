@@ -1,13 +1,13 @@
 {
   "domain": "tmf-operations",
-  "toolDescriptionSuffix": "This tool is part of the TMF Operations for Customer, Customer Billing, payment and payment method domains.",
+  "toolDescriptionSuffix": "This tool is part of the TMF Operations for Customer, Customer Billing, Payment and Payment Method domains.",
   "exchangeAssets": [
     {
-      "assetId": "tmf629-customer-biz",
-      "groupId": "ddbe5750-31fa-419a-b0b7-f71b61bf57b1",
+      "assetId": "customer-management-api",
+      "groupId": "your-group-id",
       "displayName": "TMF Customer API",
       "version": "1.0.0",
-      "basePathOverride": "https://tmf629-biz-6b0n96.dw4w1g-1.gbr-e1.cloudhub.io/tmf-api/customerManagement/v4",
+      "basePathOverride": "https://your-api-gateway.example.com/tmf-api/customerManagement/v4",
       "toolDescriptions": {
         "getCustomerById": "Retrieve a customer's complete profile including name, address, contact details, and account status using their unique customer ID",
         "getCustomer": "Search and list customers with optional filtering by name, status, or account type",
@@ -16,32 +16,33 @@
       }
     },
     {
-      "assetId": "tmf678-customerbill-biz",
-      "groupId": "ddbe5750-31fa-419a-b0b7-f71b61bf57b1",
+      "assetId": "customer-bill-management-api",
+      "groupId": "your-group-id",
       "displayName": "TMF678 - Customer Bill Management API",
       "version": "1.0.0",
-      "basePathOverride": "https://tmf678-biz-6b0n96.dw4w1g-2.gbr-e1.cloudhub.io/tmf-api/customerBillManagement/v4",
+      "basePathOverride": "https://your-api-gateway.example.com/tmf-api/customerBillManagement/v4",
       "toolDescriptions": {
         "listCustomerBill": "List all customer bills with optional filtering by date range, billing account, and payment status",
         "retrieveCustomerBill": "Retrieve detailed information about a specific customer bill including line items, charges, and payment status"
       }
-    },{
-  "assetId": "tmf676-payment-biz",
-  "groupId": "ddbe5750-31fa-419a-b0b7-f71b61bf57b1",
-  "displayName": "TMF Payment API",
-  "version": "1.0.0",
-  "basePathOverride": "https://tmf676-biz-6b0n96.dw4w1g-1.gbr-e1.cloudhub.io/tmf-api/paymentManagement/v4",
-  "toolDescriptions": {
-    "getPayment": "Search and list all payments with optional filtering by status, account ID, or date range",
-    "getPaymentById": "Retrieve a specific payment's complete details including amount, tax, payment method, and status using its unique payment ID",
-    "createPayment": "Create a new payment record for a customer account, specifying the amount, payment method, and associated billing account",
-    "getRefund": "Search and list all refunds with optional filtering by status or account ID",
-    "getRefundById": "Retrieve a specific refund's complete details including refund amount, status, and the original payment reference using its unique refund ID",
-    "createRefund": "Create a new refund record against an existing payment, specifying the refund amount and associated billing account"
-  }
-}
+    },
+    {
+      "assetId": "payment-management-api",
+      "groupId": "your-group-id",
+      "displayName": "TMF Payment API",
+      "version": "1.0.0",
+      "basePathOverride": "https://your-api-gateway.example.com/tmf-api/paymentManagement/v4",
+      "toolDescriptions": {
+        "getPayment": "Search and list all payments with optional filtering by status, account ID, or date range",
+        "getPaymentById": "Retrieve a specific payment's complete details including amount, tax, payment method, and status using its unique payment ID",
+        "createPayment": "Create a new payment record for a customer account, specifying the amount, payment method, and associated billing account",
+        "getRefund": "Search and list all refunds with optional filtering by status or account ID",
+        "getRefundById": "Retrieve a specific refund's complete details including refund amount, status, and the original payment reference using its unique refund ID",
+        "createRefund": "Create a new refund record against an existing payment, specifying the refund amount and associated billing account"
+      }
+    }
   ],
   "toolNamePrefix": "",
-  "excludeOperations": ["retrieveCustomerBillOnDemand", "listCustomerBillOnDemand","updateCustomerById","deleteCustomerById","createCustomerBill","updateCustomerBillById","updatePaymentMethodById"],
+  "excludeOperations": ["retrieveCustomerBillOnDemand", "listCustomerBillOnDemand", "updateCustomerById", "deleteCustomerById", "createCustomerBill", "updateCustomerBillById", "updatePaymentMethodById"],
   "includeOperations": []
 }
