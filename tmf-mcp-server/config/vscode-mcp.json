@@ -1,0 +1,18 @@
+{
+  "servers": {
+    "mulesoft": {
+      "command": "npx",
+      "args": ["-y", "@mulesoft/mcp-server", "start"],
+      "env": {
+        "ANYPOINT_CLIENT_ID": "6473c5a0b1a742598cb61a2854e3e728",
+        "ANYPOINT_CLIENT_SECRET": "Be20755971034eaBB77f78189afb63A6",
+        "ANYPOINT_REGION": "PROD_US"
+      },
+      "type": "stdio"
+    },
+    "tmf-customer-ops": {
+      "type": "sse",
+      "url": "http://34.10.73.237:8081/sse"
+    }
+  }
+}
